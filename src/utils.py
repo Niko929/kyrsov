@@ -1,9 +1,11 @@
+import json
 from datetime import datetime
-
 import pandas as pd
 from pandas import DataFrame
 import requests
 
+URL = "https://api.apilayer.com/currency_data/convert"
+#API_KEY =
 def get_time_for_greeting():
     """Функция возращает приветсивие, в зависимости от времени"""
     user_datetime = datetime.now().hour
@@ -25,15 +27,110 @@ def get_data_time(date_time: str, date_format:str = "%Y-%m-%d %H:%M:%S") -> list
         dt.strftime("%d.%m.%Y %H:%M:%S")
     ]
 
-def calculate_cashback(total_spent):
-    return total_spent // 100
 
-def tabl_ger(her="../data/operations.xlsx"):
-    excel_data = pd.read_excel(her)
-    excel_data_dict = excel_data.to_dict(orient="records")
-    return excel_data_dict
+def get_path_and_period(path_to_file:str,period_date: list) -> DataFrame:
+    """Функия принимает путь к exсel"""
+    df = pd.read_excel(path_to_file, sheet_name = "Отчет по операциям")
+    #print("We here")
+    #print(type(pd.to_datetime(df["Дата операции"], dayfirst = True)))
+    df["Дата операции"] = pd.to_datetime(df["Дата операции"], dayfirst = True)
+    start_date = datetime.strptime(period_date[0], "%d.%m.%Y %H:%M:%S")
+    end_date = datetime.strptime(period_date[1], "%d.%m.%Y %H:%M:%S")
 
-top_transactions = sorted(tabl_ger, key=lambda x: x['amount'], reverse=True)[:5]
+    filtered_df = df[
+        (df["Дата операции"] >= start_date) &
+        (df["Дата операции"] <= end_date)
+    ]
+    sorted_df = filtered_df.sort_values(by = "Дата операции", ascending=True)
+    #print(sorted_df)
+    return sorted_df
 
+def get_card_with_spend(sorted_df:DataFrame)-> list[dict]:
+    """
+    Фукнциия принимает DataFrame и возращает список с расходами
+    """
+    carts_spends = []
+    card_sorted = sorted_df[
+        [
+            "Номер карты",
+            "Сумма операции",
+            "Кэшбэк",
+            "Сумма операции с округлением"
+        ]
+    ]
+    for g, j in card_sorted.iterrows():
+        if j["Сумма операции"] <0:
+            last_digits = str(j["Сумма операции"]).replace("*","")
+            total_spent = j["Сумма операции с округлением"]
+            cashback = total_spent//100
+            j ={
+                "last_digits": last_digits,
+                "total_spent": total_spent,
+                "cashback": cashback
+            }
+            carts_spends.append(j)
+    return carts_spends
 
+def get_top_trans(sorted_df:DataFrame, top):
+    """ Функия возращает топ 5 по сумме платежа"""
+
+    top_per_tran = []
+    sorted_pay_df = sorted_df.sort_values(by="Сумма операции", ascending=False)
+    top_tran  = sorted_pay_df.head(top)
+    top_tran_sor = top_tran[
+        [
+            "Дата платежа",
+            "Сумма операции",
+            "Категория",
+            "Описание"
+        ]
+
+    ]
+    for g1, j1 in top_tran_sor.iterrows():
+        j1 = {
+         "date": f"{j1["Дата платежа"]}",
+         "amount": f"{j1["Сумма операции"]}",
+         "category": f"{j1["Категория"]}",
+         "description":f"{j1["Описание"]}"
+    }
+        top_per_tran.append(j1)
+
+    return top_per_tran
+
+def get_ccurent(part_json: str) -> list[dict]:
+    ver_car = []
+    with open(part_json, "r", encoding = "utf-8") as f:
+       data = json.load(f)
+       currebt = data['user_currencies']
+
+       for cru in currebt:
+           params = {
+               "amount": 1,
+               "from": f"{cru}",
+               "to": "RUB"
+           }
+           headers = {
+               "apikey": "m3gjTclxrCxcREmfnJflQZ7qadOTc5yY"
+           }
+           response = requests.request("GET", URL, headers=headers, data=params)
+
+           starus_code = response.status_code
+           if starus_code == 200:
+               resuit = response.json()
+               curren_rate = resuit["query"]["from"]
+               cer_an = round(resuit["resuit"], 2)
+               ver_car.append({
+                   "ccurrency": f"{curren_rate}",
+                   "rate": f"{cer_an}"
+               })
+
+       return ver_car
+
+# def get_stiru(part_json: str) -> list[dict]:
+#     stiru_car = []
+#     with open(part_json, "r", encoding="utf-8") as f:
+#         data = json.load(f)
+#         stoks = data['user_stocks']
+#
+#         for i in stoks:
 
