@@ -126,11 +126,5 @@ def get_ccurent(part_json: str) -> list[dict]:
 
        return ver_car
 
-# def get_stiru(part_json: str) -> list[dict]:
-#     stiru_car = []
-#     with open(part_json, "r", encoding="utf-8") as f:
-#         data = json.load(f)
-#         stoks = data['user_stocks']
-#
-#         for i in stoks:
+
 
