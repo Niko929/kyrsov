@@ -42,5 +42,10 @@ def mai_per(date_time: str, gor:int, motheer:int)->Dict[str, Any]:
     return json_date1
 
 def new_main(transactions_df, category, date=None):
-    reter = get_expenses_by_category(transactions_df, category)
+    reter = get_expenses_by_category(transactions_df, category,date)
+    # formatted_output = {
+    #     "category": category,
+    #     "expenses": reter
+    # }
+
     return reter
