@@ -1,38 +1,60 @@
-import pandas as pd
 import json
+import logging
+import pandas as pd
+from datetime import datetime
 
-def analyze_cashback(data_ser, year2, month2, top:int):
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+
+def analyze_cashback(year: int, month: int, excel_file: str):
+    # Логирование начала выполнения функции
+    logging.info(f"Запуск функции с годом: {year}, месяц: {month}")
+
     # Чтение данных из Excel файла
-    top_per = []
-    df = pd.read_excel(data_ser, sheet_name = "Отчет по операциям")
+    try:
+        df = pd.read_excel(excel_file)
+    except Exception as e:
+        logging.error(f"Ошибка при чтении файла Excel: {e}")
+        return json.dumps({"error": "Ошибка при чтении файла Excel"}, ensure_ascii=False)
 
-    # Преобразуем столбец с датами в формат datetime
-    df['Дата платежа'] = pd.to_datetime(df['Дата платежа'], dayfirst = True)
+    # Проверка наличия необходимых колонок
+    required_columns = ['Дата платежа', 'Категория', 'Кэшбэк']
+    if not all(column in df.columns for column in required_columns):
+        logging.error("Отсутствуют необходимые колонки в Excel файле.")
+        return json.dumps({"error": "Отсутствуют необходимые колонки в Excel файле."}, ensure_ascii=False)
 
-    # Фильтруем данные по указанному году и месяцу
-    filtered_data = df[(df['Дата платежа'].dt.year == year2) & (df['Дата платежа'].dt.month == month2)]
+    try:
+        df['Дата платежа'] = pd.to_datetime(df['Дата платежа'], format='%d.%m.%Y', dayfirst=True)
+    except Exception as e:
+        logging.error(f"Ошибка при преобразовании дат: {e}")
+        return json.dumps({"error": "Ошибка при преобразовании дат."}, ensure_ascii=False)
 
-    # Группируем данные по категориям и суммируем транзакции
-    #cashback_analysis = filtered_data.groupby('Категория')['Сумма платежа'].sum().to_dict()
+    # Преобразуем год и месяц в формат даты
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year, month + 1, 1) if month < 12 else datetime(year + 1, 1, 1)
 
-    # Преобразуем результат в JSON
-   # result_json = json.dumps(cashback_analysis, ensure_ascii=False)
+    # Фильтрация транзакций по дате
+    filtered_transactions = df[(pd.to_datetime(df['Дата платежа']) >= start_date) &
+                                (pd.to_datetime(df['Дата платежа']) < end_date)]
 
-    top_tran = filtered_data.head(top)
-    top_tran_sor = top_tran[
-        [
-            "Сумма платежа"
-        ]
+    # Подсчет кешбэка по категориям
+    cashback_by_category = filtered_transactions.groupby('Категория')['Кэшбэк'].sum().to_dict()
 
-    ]
-    for g1, j1 in top_tran_sor.iterrows():
-        j1 = {
-            "category1": f"{j1["Сумма платежа"]}"
+    # Формирование ответа
+    response = {
+        'year': year,
+        'month': month,
+        'cashback_by_category': cashback_by_category
+    }
 
-        }
-        top_per.append(j1)
+    # Логирование успешного завершения функции
+    logging.info("Функция выполнена успешно, формирование ответа")
 
-    return top_per
+    # Возврат JSON-ответа
+    return json.dumps(response, ensure_ascii=False)
 
-
-
+# Пример использования функции
+if __name__ == "__main__":
+    excel_file = "../data/operations.xlsx"  # Укажите путь к вашему файлу Excel
+    result = analyze_cashback(2019, 1, excel_file)
+    print(result)
